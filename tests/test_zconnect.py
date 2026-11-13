@@ -173,6 +173,14 @@ def test_is_candidate_filters_unusable_nodes(node: FakeNode, expected: bool) -> 
     assert zconnect._is_candidate(node, target=target, downstream={"Write1"}) is expected
 
 
+def test_is_candidate_without_target_keeps_every_node() -> None:
+    """Jump mode has no target, so only skipped classes and unlabelled Dots drop out."""
+    grade = FakeNode(cls="Grade", name="Grade1")
+    viewer = FakeNode(cls="Viewer", name="Viewer1")
+    assert zconnect._is_candidate(grade, target=None, downstream=set())
+    assert not zconnect._is_candidate(viewer, target=None, downstream=set())
+
+
 def test_downstream_follows_dependents() -> None:
     """Every node fed by the target is excluded, through several levels."""
 

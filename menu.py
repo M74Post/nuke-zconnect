@@ -6,4 +6,6 @@ import nuke
 
 import zconnect
 
-nuke.menu("Node Graph").addCommand("zconnect/Connect input", zconnect.show, "x", shortcutContext=2)
+graph = nuke.menu("Node Graph")
+graph.addCommand("zconnect/Connect input", zconnect.show, "z", shortcutContext=2)
+graph.addCommand("zconnect/Jump to node", zconnect.jump, "shift+z", shortcutContext=2)
