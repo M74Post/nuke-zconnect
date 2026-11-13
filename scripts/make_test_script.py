@@ -27,38 +27,43 @@ ELEMENTS = [
     "crowd_l", "crowd_r", "vehicle_beauty", "vehicle_shadow", "matte_painting",
     "light_wrap",
 ]
-CORRECTIONS = ["Grade", "ColorCorrect", "Transform", "Blur", "Saturation", "HueCorrect", "Defocus", "Erode"]
+CORRECTIONS = [
+    "Grade", "ColorCorrect", "Transform", "Blur",
+    "Saturation", "HueCorrect", "Defocus", "Erode",
+]
 DOT_LABELS = ["to comp", "denoised", "precomp", "keep", "for despill", "graded", "lineup"]
 
 
-def _place(node: Any, column: float, row: int) -> Any:
+def _place(node: Any, *, column: float, row: int) -> Any:
     node.setXYpos(int(column * COLUMN_WIDTH), row * ROW_HEIGHT)
     return node
 
 
-def _element(name: str, column: int, rng: random.Random) -> Any:
+def _element(name: str, *, column: int, rng: random.Random) -> Any:
     """Build one element branch and return its last node."""
     version = rng.randint(1, 12)
-    read = _place(nuke.nodes.Read(file=f"/shows/demo/sh010/elements/{name}/{name}_v{version:03d}.####.exr"), column, 0)
+    path = f"/shows/demo/sh010/elements/{name}/{name}_v{version:03d}.####.exr"
+    read = _place(nuke.nodes.Read(file=path), column=column, row=0)
 
     last = read
     row = 1
     for correction in rng.sample(CORRECTIONS, rng.randint(2, 6)):
-        node = _place(getattr(nuke.nodes, correction)(), column, row)
+        node = _place(getattr(nuke.nodes, correction)(), column=column, row=row)
         node.setInput(0, last)
         last = node
         row += 1
 
     if rng.random() < 0.4:
-        roto = _place(nuke.nodes.Roto(label=f"{name} mask"), column + 0.5, row - 1)
-        grade = _place(nuke.nodes.Grade(label="masked"), column, row)
+        roto = _place(nuke.nodes.Roto(label=f"{name} mask"), column=column + 0.5, row=row - 1)
+        grade = _place(nuke.nodes.Grade(label="masked"), column=column, row=row)
         grade.setInput(0, last)
         grade.setInput(grade.optionalInput(), roto)
         last = grade
         row += 1
 
     if rng.random() < 0.5:
-        dot = _place(nuke.nodes.Dot(label=f"{name} {rng.choice(DOT_LABELS)}"), column, row)
+        label = f"{name} {rng.choice(DOT_LABELS)}"
+        dot = _place(nuke.nodes.Dot(label=label), column=column, row=row)
         dot.setInput(0, last)
         last = dot
 
@@ -69,26 +74,35 @@ def _orphans(rng: random.Random, start_column: int) -> None:
     """Add loose nodes and unlabelled Dots, the clutter real scripts have."""
     for index in range(20):
         node = getattr(nuke.nodes, rng.choice(CORRECTIONS + ["Dot", "NoOp", "Shuffle"]))()
-        _place(node, start_column + index % 5, 12 + index // 5)
+        _place(node, column=start_column + index % 5, row=12 + index // 5)
 
 
 def build() -> None:
+    """Build the whole fake comp in the current script."""
     rng = random.Random(SEED)
 
-    branches = [_element(name, column, rng) for column, name in enumerate(ELEMENTS)]
+    branches = [_element(name, column=column, rng=rng) for column, name in enumerate(ELEMENTS)]
 
     comp = branches[0]
     for row, branch in enumerate(branches[1:], start=1):
-        merge = _place(nuke.nodes.Merge2(operation=rng.choice(["over", "over", "plus", "screen"])), 0, 10 + row)
+        operation = rng.choice(["over", "over", "plus", "screen"])
+        merge = _place(nuke.nodes.Merge2(operation=operation), column=0, row=10 + row)
         merge.setInput(0, comp)
         merge.setInput(1, branch)
         comp = merge
 
-    write = _place(nuke.nodes.Write(file="/shows/demo/sh010/comp/sh010_comp_v001.####.exr"), 0, 11 + len(branches))
+    write = nuke.nodes.Write(file="/shows/demo/sh010/comp/sh010_comp_v001.####.exr")
+    _place(write, column=0, row=11 + len(branches))
     write.setInput(0, comp)
 
     _orphans(rng, len(ELEMENTS) + 1)
-    nuke.nodes.BackdropNode(label="elements", xpos=-40, ypos=-60, bdwidth=len(ELEMENTS) * COLUMN_WIDTH, bdheight=10 * ROW_HEIGHT)
+    nuke.nodes.BackdropNode(
+        label="elements",
+        xpos=-40,
+        ypos=-60,
+        bdwidth=len(ELEMENTS) * COLUMN_WIDTH,
+        bdheight=10 * ROW_HEIGHT,
+    )
 
 
 if __name__ == "__main__":
