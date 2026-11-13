@@ -3,7 +3,18 @@ from __future__ import annotations
 from typing import Any
 
 from zconnect import main
-from zconnect.main import Candidate, Frecency, fuzzy_score, input_slot, rank, sockets
+from zconnect.main import (
+    MASK_CLASSES,
+    Candidate,
+    Frecency,
+    clamp_to_screen,
+    dag_to_widget,
+    fuzzy_score,
+    input_slot,
+    rank,
+    socket_name,
+    sockets,
+)
 
 NOW = 1_000_000.0
 
@@ -61,9 +72,13 @@ def test_rank_empty_query_uses_distance() -> None:
 
 
 class FakeNode:
-    def __init__(self, inputs: list[Any], optional: int) -> None:
+    def __init__(self, inputs: list[Any], optional: int, cls: str = "Grade") -> None:
         self._inputs = inputs
         self._optional = optional
+        self._cls = cls
+
+    def Class(self) -> str:
+        return self._cls
 
     def optionalInput(self) -> int:
         return self._optional
@@ -106,19 +121,32 @@ def test_sockets_without_mask() -> None:
 
 
 def test_input_slot_skips_mask_and_taken_inputs() -> None:
-    """Merge with B taken fills A, not the mask."""
-    merge = FakeNode(["B", None, None], optional=2)
-    assert input_slot(merge, mask=False) == 1
+    """Merge with B taken defaults to A, not the mask."""
+    assert input_slot(FakeNode(["B", None, None], optional=2)) == 1
 
 
-def test_input_slot_mask() -> None:
-    """The mask flag targets the optional input."""
-    assert input_slot(FakeNode([None, None], optional=1), mask=True) == 1
+def test_input_slot_all_taken_offers_first() -> None:
+    """When every input is taken, input 0 is the default."""
+    assert input_slot(FakeNode(["src", "mask"], optional=1)) == 0
 
 
-def test_input_slot_all_taken_replaces_first() -> None:
-    """When every input is taken, input 0 is replaced."""
-    assert input_slot(FakeNode(["src", "mask"], optional=1), mask=False) == 0
+def test_socket_name_merge() -> None:
+    """Merge sockets read B, A, mask, A2 like the arrows Nuke draws."""
+    merge = FakeNode([None] * 5, optional=2, cls="Merge2")
+    assert [socket_name(merge, slot) for slot in range(4)] == ["B", "A", "mask", "A2"]
+
+
+def test_socket_name_unknown_class() -> None:
+    """A node missing from the table gets "input" and "mask"."""
+    grade = FakeNode([None, None], optional=1)
+    assert [socket_name(grade, slot) for slot in range(2)] == ["input", "mask"]
+
+
+def test_rank_boost_lifts_mask_sources() -> None:
+    """With the mask socket picked, a Roto ranks above a closer Grade."""
+    roto = Candidate(node="Roto1", key=("s.nk", "Roto1"), texts=["Roto1", "Roto"], distance=500)
+    grade = Candidate(node="Grade1", key=("s.nk", "Grade1"), texts=["Grade1", "Grade"], distance=10)
+    assert rank([grade, roto], "", Frecency(), NOW, MASK_CLASSES)[0] is roto
 
 
 def test_downstream_follows_dependents() -> None:
@@ -143,3 +171,23 @@ def test_downstream_follows_dependents() -> None:
     merge = Node("Merge1", [write])
     grade = Node("Grade1", [merge])
     assert main._downstream(FakeNuke, grade) == {"Merge1", "Write1"}
+
+
+def test_dag_to_widget_center_maps_to_middle() -> None:
+    """The DAG point at the view center lands in the middle of the widget."""
+    assert dag_to_widget((100, 200), (100, 200), 1.0, (800, 600)) == (400, 300)
+
+
+def test_dag_to_widget_scales_offset_by_zoom() -> None:
+    """Offsets from the center are scaled by the zoom level."""
+    assert dag_to_widget((150, 180), (100, 200), 2.0, (800, 600)) == (500, 260)
+
+
+def test_clamp_to_screen_keeps_inside() -> None:
+    """A popup that would cross the bottom-right corner is pulled back on screen."""
+    assert clamp_to_screen((1800, 1000), (640, 300), (0, 0, 1920, 1080)) == (1280, 780)
+
+
+def test_clamp_to_screen_leaves_fitting_popup() -> None:
+    """A popup already on screen does not move."""
+    assert clamp_to_screen((100, 100), (640, 300), (0, 0, 1920, 1080)) == (100, 100)

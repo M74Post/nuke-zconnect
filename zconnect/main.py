@@ -19,6 +19,17 @@ MAX_ROWS = 15
 SKIP_CLASSES = {"Viewer", "BackdropNode", "StickyNote", "Root"}
 SEPARATORS = set("_-. /")
 
+# Input labels for nodes whose arrows are not simply "input" and "mask".
+INPUT_NAMES = {
+    "Merge2": ["B", "A"],
+    "Copy": ["B", "A"],
+    "Keymix": ["B", "A"],
+}
+
+# Nodes that usually feed a mask input rank higher when the mask socket is picked.
+MASK_CLASSES = frozenset({"Roto", "RotoPaint", "Keyer", "Radial", "Rectangle", "Ramp"})
+CLASS_BOOST = 5.0
+
 
 # === FUZZY MATCH === #
 
@@ -104,11 +115,18 @@ class Candidate:
         return self.texts[0], self.texts[1], "  ·  ".join(self.texts[2:])
 
 
-def rank(candidates: list[Candidate], query: str, frecency: Frecency, now: float) -> list[Candidate]:
+def rank(
+    candidates: list[Candidate],
+    query: str,
+    frecency: Frecency,
+    now: float,
+    boost_classes: frozenset[str] = frozenset(),
+) -> list[Candidate]:
     """Filter candidates by `query` and sort best first.
 
     Match quality and frecency add up, so a strong match on an unused node
-    beats a weak match on a used one. Distance in the DAG breaks ties.
+    beats a weak match on a used one. Nodes of `boost_classes` get a fixed bonus
+    (mask sources for the mask socket). Distance in the DAG breaks ties.
     """
     scored = []
     for candidate in candidates:
@@ -116,6 +134,8 @@ def rank(candidates: list[Candidate], query: str, frecency: Frecency, now: float
         if not matches:
             continue
         total = max(matches) + 2.0 * math.log1p(frecency.score(candidate.key, now))
+        if candidate.texts[1] in boost_classes:
+            total += CLASS_BOOST
         scored.append((-total, candidate.distance, candidate))
 
     scored.sort(key=lambda item: (item[0], item[1]))
@@ -183,15 +203,12 @@ def collect_candidates(nuke: Any, target: Any) -> list[Candidate]:
     return candidates
 
 
-def input_slot(target: Any, mask: bool) -> int:
-    """Return the input index to fill: the mask input, or the first free non-mask input.
+def input_slot(target: Any) -> int:
+    """Return the first free input that is not the mask: the socket offered by default.
 
-    When every input is taken, input 0 is replaced: the artist picked a node on purpose.
+    When every input is taken, input 0 is offered: the artist may want to rewire it.
     """
     optional = target.optionalInput()
-    if mask:
-        return optional
-
     for index in range(target.maxInputs()):
         if index != optional and target.input(index) is None:
             return index
@@ -199,19 +216,29 @@ def input_slot(target: Any, mask: bool) -> int:
 
 
 def sockets(target: Any) -> list[int]:
-    """Return the input indexes Alt+A cycles through, in index order.
+    """Return the input indexes the artist can pick from, in index order.
 
     Covers every connected input, the first free one, and everything up to the mask,
     so an empty Merge offers B, A, mask. Merge has thousands of A inputs; the range
     stops there instead of listing them all.
     """
-    count = max(target.inputs(), input_slot(target, mask=False) + 1, target.optionalInput() + 1)
+    count = max(target.inputs(), input_slot(target) + 1, target.optionalInput() + 1)
     return list(range(min(target.maxInputs(), count)))
 
 
 def socket_name(target: Any, slot: int) -> str:
-    label = target.inputLabel(slot) if hasattr(target, "inputLabel") else ""
-    return label or str(slot)
+    """Return the label Nuke draws on the input arrow, as far as the Python API lets us know it."""
+    if slot == target.optionalInput():
+        return "mask"
+
+    # shortcut: the Python API has no call for input labels; extend this table as nodes come up.
+    names = INPUT_NAMES.get(target.Class())
+    if names is None:
+        return "input" if slot == 0 else str(slot)
+    if slot < len(names):
+        return names[slot]
+    # Merge-like nodes: index 3 is A2, index 4 is A3, and so on (index 2 is the mask).
+    return f"{names[-1]}{slot - 1}"
 
 
 def connect(nuke: Any, target: Any, source: Any, slot: int) -> None:
@@ -222,6 +249,36 @@ def connect(nuke: Any, target: Any, source: Any, slot: int) -> None:
         nuke.Undo.end()
 
     FRECENCY.add((nuke.root().name(), source.fullName()), time.time())
+
+
+# === PLACEMENT === #
+
+
+def dag_to_widget(
+    point: tuple[float, float],
+    center: tuple[float, float],
+    zoom: float,
+    size: tuple[int, int],
+) -> tuple[int, int]:
+    """Convert a DAG coordinate to pixels inside the Node Graph widget.
+
+    The widget shows `center` in its middle, scaled by `zoom`.
+    """
+    x = size[0] / 2 + (point[0] - center[0]) * zoom
+    y = size[1] / 2 + (point[1] - center[1]) * zoom
+    return round(x), round(y)
+
+
+def clamp_to_screen(
+    position: tuple[int, int],
+    size: tuple[int, int],
+    screen: tuple[int, int, int, int],
+) -> tuple[int, int]:
+    """Move a rectangle of `size` at `position` so it stays inside `screen` (x, y, width, height)."""
+    left, top, width, height = screen
+    x = min(max(position[0], left), left + width - size[0])
+    y = min(max(position[1], top), top + height - size[1])
+    return x, y
 
 
 # === UI === #
@@ -238,11 +295,40 @@ def _qt() -> tuple[Any, Any, Any]:
 _popup: Any = None
 
 
-def show(mask: bool = False) -> None:
-    """Open the search popup for the selected node. Bind this to the hotkey.
+def _dag_widget(QtGui: Any, QtWidgets: Any) -> Any | None:
+    """Return the visible Node Graph widget, preferring the one under the cursor."""
+    # shortcut: Nuke names its graph widgets "DAG.1", "DAG.2"...; this is not public API,
+    # so a None result falls back to the cursor position.
+    graphs = [
+        widget
+        for widget in QtWidgets.QApplication.allWidgets()
+        if widget.objectName().startswith("DAG") and widget.isVisible()
+    ]
+    cursor = QtGui.QCursor.pos()
+    for widget in graphs:
+        if widget.rect().contains(widget.mapFromGlobal(cursor)):
+            return widget
+    return graphs[0] if graphs else None
 
-    Inside the popup: type to filter, Tab/Up/Down to move, Enter to connect,
-    Alt+F to pan the DAG to the highlighted node, Alt+A to cycle the input socket.
+
+def _popup_position(nuke: Any, QtCore: Any, QtGui: Any, QtWidgets: Any, target: Any) -> Any:
+    """Return the global position just under `target` in the Node Graph, or the cursor position."""
+    dag = _dag_widget(QtGui, QtWidgets)
+    if dag is None:
+        return QtGui.QCursor.pos()
+
+    below_node = (target.xpos() + target.screenWidth() / 2, target.ypos() + target.screenHeight())
+    x, y = dag_to_widget(below_node, tuple(nuke.center()), nuke.zoom(), (dag.width(), dag.height()))
+    if not dag.rect().contains(QtCore.QPoint(x, y)):
+        return QtGui.QCursor.pos()
+    return dag.mapToGlobal(QtCore.QPoint(x, y + 8))
+
+
+def show() -> None:
+    """Open the popup for the selected node. Bind this to the hotkey.
+
+    Type to filter, Tab/Up/Down to move, Enter to connect. The input socket starts
+    on the first free one; Alt+A cycles it. Alt+F frames the highlighted node.
     """
     global _popup
 
@@ -254,30 +340,40 @@ def show(mask: bool = False) -> None:
         nuke.message("zconnect: select a node first.")
         return
 
-    if mask and target.optionalInput() >= target.maxInputs():
-        nuke.message(f"zconnect: {target.name()} has no mask input.")
+    if target.maxInputs() == 0:
+        nuke.message(f"zconnect: {target.name()} has no inputs.")
         return
 
     QtCore, QtGui, QtWidgets = _qt()
     candidates = collect_candidates(nuke, target)
 
     slots = sockets(target)
-    first_slot = input_slot(target, mask)
+    names = {slot: socket_name(target, slot) for slot in slots}
+    default_slot = input_slot(target)
 
     class Popup(QtWidgets.QFrame):
         def __init__(self) -> None:
             super().__init__(QtWidgets.QApplication.activeWindow(), QtCore.Qt.Popup)
 
             self._matches: list[Candidate] = []
-            self._slot = first_slot
+            self._slot = default_slot
             self._saved_view: tuple[float, list[float]] | None = None
             self._saved_selection: list[Any] = []
 
             self.setMinimumWidth(640)
 
-            self._socket = QtWidgets.QLabel()
+            self._tabs = QtWidgets.QTabBar()
+            self._tabs.setFocusPolicy(QtCore.Qt.NoFocus)
+            self._tabs.setDrawBase(False)
+            for slot in slots:
+                self._tabs.addTab(names[slot])
+            self._tabs.setVisible(len(slots) > 1)
+            self._tabs.setCurrentIndex(slots.index(default_slot))
+            self._tabs.currentChanged.connect(lambda index: self._set_socket(slots[index]))
 
             self._query = QtWidgets.QLineEdit()
+            hint = "   (Alt+A: switch input)" if len(slots) > 1 else ""
+            self._query.setPlaceholderText(f"connect to {target.name()}{hint}")
             self._query.textChanged.connect(self._refresh)
             self._query.installEventFilter(self)
 
@@ -291,13 +387,12 @@ def show(mask: bool = False) -> None:
 
             layout = QtWidgets.QVBoxLayout()
             layout.setContentsMargins(4, 4, 4, 4)
-            layout.addWidget(self._socket)
+            layout.addWidget(self._tabs)
             layout.addWidget(self._query)
             layout.addWidget(self._table)
             self.setLayout(layout)
 
-            self._show_socket()
-            self._refresh("")
+            self._set_socket(default_slot)
 
         def hideEvent(self, event: Any) -> None:
             # Put view and selection back where the artist was working, whatever closed the popup.
@@ -309,20 +404,19 @@ def show(mask: bool = False) -> None:
                 nuke.zoom(*self._saved_view)
             super().hideEvent(event)
 
+        def _set_socket(self, slot: int) -> None:
+            self._slot = slot
+            self._refresh(self._query.text())
+
         def _current_row(self) -> int:
             return self._table.indexOfTopLevelItem(self._table.currentItem())
 
         def _set_row(self, row: int) -> None:
             self._table.setCurrentItem(self._table.topLevelItem(row))
 
-        def _show_socket(self) -> None:
-            self._socket.setText(
-                f"{target.name()} \u2190 {socket_name(target, self._slot)}"
-                "      Alt+A socket   Alt+F focus"
-            )
-
         def _refresh(self, query: str) -> None:
-            self._matches = rank(candidates, query, FRECENCY, time.time())[:MAX_ROWS]
+            boost = MASK_CLASSES if self._slot == target.optionalInput() else frozenset()
+            self._matches = rank(candidates, query, FRECENCY, time.time(), boost)[:MAX_ROWS]
             self._table.clear()
             for candidate in self._matches:
                 self._table.addTopLevelItem(QtWidgets.QTreeWidgetItem(list(candidate.columns)))
@@ -334,10 +428,6 @@ def show(mask: bool = False) -> None:
         def _move(self, step: int) -> None:
             if self._matches:
                 self._set_row((self._current_row() + step) % len(self._matches))
-
-        def _cycle_socket(self) -> None:
-            self._slot = slots[(slots.index(self._slot) + 1) % len(slots)]
-            self._show_socket()
 
         def _focus(self) -> None:
             row = self._current_row()
@@ -358,18 +448,23 @@ def show(mask: bool = False) -> None:
             if 0 <= row < len(self._matches):
                 connect(nuke, target, self._matches[row].node, self._slot)
 
+        def _alt_key(self, key: int) -> bool:
+            # Compare key codes, not event.text(): on macOS Option+A types "å".
+            if key == QtCore.Qt.Key_F:
+                self._focus()
+                return True
+            if key == QtCore.Qt.Key_A:
+                self._tabs.setCurrentIndex((self._tabs.currentIndex() + 1) % len(slots))
+                return True
+            return False
+
         def eventFilter(self, watched: Any, event: Any) -> bool:
             if event.type() != QtCore.QEvent.KeyPress:
                 return False
 
             key = event.key()
             if event.modifiers() & QtCore.Qt.AltModifier:
-                if key == QtCore.Qt.Key_A:
-                    self._cycle_socket()
-                    return True
-                if key == QtCore.Qt.Key_F:
-                    self._focus()
-                    return True
+                return self._alt_key(key)
             if key in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
                 self._accept()
                 return True
@@ -382,6 +477,11 @@ def show(mask: bool = False) -> None:
             return False
 
     _popup = Popup()
-    _popup.move(QtGui.QCursor.pos())
+    _popup.adjustSize()
+    position = _popup_position(nuke, QtCore, QtGui, QtWidgets, target)
+    screen = QtGui.QGuiApplication.screenAt(position) or QtGui.QGuiApplication.primaryScreen()
+    area = screen.availableGeometry()
+    size = (_popup.width(), _popup.height())
+    _popup.move(*clamp_to_screen((position.x(), position.y()), size, (area.x(), area.y(), area.width(), area.height())))
     _popup.show()
     _popup._query.setFocus()

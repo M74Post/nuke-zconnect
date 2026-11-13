@@ -6,6 +6,4 @@ import nuke
 
 import zconnect
 
-graph = nuke.menu("Node Graph")
-graph.addCommand("zconnect/Connect input", lambda: zconnect.show(), "x", shortcutContext=2)
-graph.addCommand("zconnect/Connect mask", lambda: zconnect.show(mask=True), "shift+x", shortcutContext=2)
+nuke.menu("Node Graph").addCommand("zconnect/Connect input", zconnect.show, "x", shortcutContext=2)
