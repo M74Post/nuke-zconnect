@@ -1,0 +1,15 @@
+[project]
+name = "zconnect"
+version = "0.1.0"
+description = "Connect Nuke nodes by fuzzy search, ranked by frecency."
+readme = "README.md"
+# Nuke 15 ships Python 3.10, Nuke 16 ships Python 3.11.
+requires-python = ">=3.10"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
