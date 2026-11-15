@@ -439,6 +439,8 @@ class Popup(QtWidgets.QFrame):
 
         self._hints = QtWidgets.QLabel(self._hint_text())
         self._hints.setStyleSheet("color: gray;")
+        # Wrap so the hints follow the table's width instead of widening the popup.
+        self._hints.setWordWrap(True)
         font = self._hints.font()
         font.setPointSizeF(font.pointSizeF() * 0.9)
         self._hints.setFont(font)
@@ -454,13 +456,13 @@ class Popup(QtWidgets.QFrame):
     def _hint_text(self) -> str:
         if self._target is None:
             hints = ["Enter: jump", "Shift+Enter: jump + panel"]
-        else:
+        else
             hints = ["Enter: connect"]
         hints.append("Tab/↑↓: move")
         if len(self._slots) > 1:
             hints.append("Alt+A: input")
         hints += ["Alt+F: frame", "Alt+P: properties", "Esc: close"]
-        return "   ·   ".join(hints)
+        return "  ·  ".join(hints)
 
     def _current_row(self) -> int:
         return self._table.indexOfTopLevelItem(self._table.currentItem())
@@ -507,6 +509,8 @@ class Popup(QtWidgets.QFrame):
 
     def _accept(self, *, open_properties: bool = False) -> None:
         row = self._current_row()
+        # After Alt+F the artist navigated there, so a connect stays on the picked node.
+        previewed = self._saved_view is not None
         # Closing first restores any Alt+F preview, so the jump below starts from the real view.
         self.close()
         if not 0 <= row < len(self._matches):
@@ -516,6 +520,8 @@ class Popup(QtWidgets.QFrame):
             jump_to(self._matches[row], open_properties=open_properties)
         else:
             connect(self._target, self._matches[row], slot=self._slot)
+            if previewed:
+                frame(self._matches[row].node)
 
     def _show_properties(self) -> None:
         """Open the highlighted node's properties in a floating panel, keeping the search open."""
