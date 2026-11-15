@@ -9,9 +9,7 @@ Single file on purpose: copy it next to a menu.py and it works.
 
 from __future__ import annotations
 
-import logging
 import math
-import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,8 +21,6 @@ try:
     from PySide6 import QtCore, QtGui, QtWidgets
 except ImportError:
     from PySide2 import QtCore, QtGui, QtWidgets
-
-LOGGER = logging.getLogger(__name__)
 
 MAX_ROWS = 15
 SKIP_CLASSES = frozenset({"Viewer", "BackdropNode", "StickyNote", "Root"})
@@ -350,52 +346,23 @@ def clamp_to_screen(
     return x, y
 
 
-def _dag_widget() -> Any | None:
-    """Return the visible Node Graph widget, preferring the one under the cursor."""
-    # shortcut: Nuke names its graph widgets "DAG.1", "DAG.2"...; this is not public API,
-    # so a None result falls back to the cursor position.
-    graphs = [
-        widget
-        for widget in QtWidgets.QApplication.allWidgets()
-        if widget.objectName().startswith("DAG") and widget.isVisible()
-    ]
-    cursor = QtGui.QCursor.pos()
-    for widget in graphs:
-        if widget.rect().contains(widget.mapFromGlobal(cursor)):
-            return widget
-    return graphs[0] if graphs else None
-
-
-def _popup_position(target: Any | None) -> Any:
-    """Return the global position just under `target` in the Node Graph, or the cursor position."""
-    if target is None:
-        return QtGui.QCursor.pos()
-
-    dag = _dag_widget()
-    if dag is None:
-        LOGGER.warning("zconnect: no Node Graph widget found, opening at the cursor.")
-        return QtGui.QCursor.pos()
-
-    below_node = (target.xpos() + target.screenWidth() / 2, target.ypos() + target.screenHeight())
-    x, y = dag_to_widget(
-        below_node,
-        center=tuple(nuke.center()),
-        zoom=nuke.zoom(),
-        size=(dag.width(), dag.height()),
-    )
-    if not dag.rect().contains(QtCore.QPoint(x, y)):
-        LOGGER.debug("zconnect: %s is outside the view, opening at the cursor.", target.name())
-        return QtGui.QCursor.pos()
-    return dag.mapToGlobal(QtCore.QPoint(x, y + 8))
-
-
 def _place(popup: QtWidgets.QWidget, target: Any | None) -> None:
-    """Move `popup` under `target`, kept inside the screen it opens on."""
+    """Move `popup` under `target` in the focused Node Graph, or to the cursor in jump mode."""
     popup.adjustSize()
-    position = _popup_position(target)
+    position = QtGui.QCursor.pos()
+    # Qt sometimes reports no focus widget when the hotkey fires; then open at the cursor.
+    dag = QtWidgets.QApplication.focusWidget()
+    if target is not None and dag is not None:
+        below_node = (target.xpos() + target.screenWidth() / 2, target.ypos() + target.screenHeight())
+        x, y = dag_to_widget(
+            below_node,
+            center=tuple(nuke.center()),
+            zoom=nuke.zoom(),
+            size=(dag.width(), dag.height()),
+        )
+        position = dag.mapToGlobal(QtCore.QPoint(x, y + 8))
 
-    screen = QtGui.QGuiApplication.screenAt(position) or QtGui.QGuiApplication.primaryScreen()
-    area = screen.availableGeometry()
+    area = QtGui.QGuiApplication.screenAt(position).availableGeometry()
     x, y = clamp_to_screen(
         (position.x(), position.y()),
         size=(popup.width(), popup.height()),
@@ -659,5 +626,5 @@ def show() -> None:
     if target.maxInputs() == 0:
         nuke.message(f"zconnect: {target.name()} has no inputs.")
         return
-    nuke.tprint(QtWidgets.QApplication.focusWidget().objectName())
+
     _open(target, slots=sockets(target))
