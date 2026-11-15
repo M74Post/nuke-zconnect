@@ -166,6 +166,7 @@ def test_extras_take_label_first_line_and_file_name() -> None:
     [
         (FakeNode(cls="Grade", name="Grade1"), True),
         (FakeNode(cls="Viewer", name="Viewer1"), False),
+        (FakeNode(cls="BackdropNode", name="Backdrop1"), False),
         (FakeNode(cls="Dot", name="Dot1", knobs={"label": ""}), False),
         (FakeNode(cls="Dot", name="Dot2", knobs={"label": "bg"}), True),
         (FakeNode(cls="Grade", name="Target"), False),
@@ -184,6 +185,12 @@ def test_is_candidate_without_target_keeps_every_node() -> None:
     viewer = FakeNode(cls="Viewer", name="Viewer1")
     assert zconnect._is_candidate(grade, target=None, downstream=set())
     assert not zconnect._is_candidate(viewer, target=None, downstream=set())
+
+
+def test_is_candidate_jump_mode_keeps_backdrops() -> None:
+    """Backdrops are landmarks to jump to, though they never feed an input."""
+    backdrop = FakeNode(cls="BackdropNode", name="Backdrop1")
+    assert zconnect._is_candidate(backdrop, target=None, downstream=set())
 
 
 def test_downstream_follows_dependents() -> None:

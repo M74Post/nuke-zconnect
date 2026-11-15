@@ -18,7 +18,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
   the mask input is picked.
 - Nodes downstream of the target are left out, so a connection cannot make a cycle.
 - `Shift+Z` jump mode selects and frames any node. `Shift+Enter` also opens its
-  properties panel.
+  properties panel. Backdrops and sticky notes are
+  in the jump results.
 - `Alt+F` frames the highlighted node. `Esc` returns the view; `Enter`
   connects and stays on the node.
 - `Alt+P` opens the highlighted node's properties in a floating panel.

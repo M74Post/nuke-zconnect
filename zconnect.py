@@ -23,7 +23,9 @@ except ImportError:
     from PySide2 import QtCore, QtGui, QtWidgets
 
 MAX_ROWS = 15
-SKIP_CLASSES = frozenset({"Viewer", "BackdropNode", "StickyNote", "Root"})
+SKIP_CLASSES = frozenset({"Viewer"})
+# Graph decoration: never an input, but a landmark worth jumping to.
+NO_OUTPUT_CLASSES = frozenset({"BackdropNode", "StickyNote"})
 SEPARATORS = frozenset("_-. /")
 
 # Input labels for nodes whose arrows are not simply "input" and "mask".
@@ -210,6 +212,8 @@ def _extras(node: Any) -> list[str]:
 
 def _is_candidate(node: Any, *, target: Any | None, downstream: set[str]) -> bool:
     if node.Class() in SKIP_CLASSES:
+        return False
+    if target is not None and node.Class() in NO_OUTPUT_CLASSES:
         return False
     if target is not None and node.fullName() == target.fullName():
         return False

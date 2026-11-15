@@ -10,6 +10,8 @@ recently rank higher, like `zoxide`.
 
 `Shift+Z` opens the same search without a selected node and jumps to the
 pick: it selects the node and frames it, like `z` in zoxide changes directory.
+Backdrops and sticky notes are in the jump results, so you can jump to a section
+by its backdrop label.
 
 ## Install
 
