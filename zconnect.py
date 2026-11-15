@@ -1,10 +1,4 @@
-"""zconnect: connect the selected node to another node by fuzzy search, ranked by frecency.
-
-Select a node, press the hotkey, type a few letters, press Enter.
-The picked node becomes an input of the selected node.
-The jump hotkey uses the same search to select and frame a node.
-
-Single file on purpose: copy it next to a menu.py and it works.
+"""Connect Nuke nodes by fuzzy search.
 
 https://github.com/sisoe24/nuke-zconnect
 Copyright (c) 2026 virgilsisoe. MIT License, see LICENSE.
@@ -87,7 +81,7 @@ def fuzzy_score(query: str, text: str) -> float | None:
 
 
 def age_weight(seconds: float) -> float:
-    """Return the zoxide age multiplier for an entry last used `seconds` ago."""
+    """Weight a use by its age: recent uses count more."""
     if seconds < 3600:
         return 4.0
     if seconds < 86400:
@@ -116,8 +110,7 @@ class Frecency:
         self.entries[key] = (count + 1, now)
 
 
-# shortcut: renamed nodes lose their score and nothing persists after Nuke closes;
-# key by a stored node id and save to JSON if that starts to hurt.
+# TODO: scores reset when Nuke closes, and renamed nodes lose theirs.
 FRECENCY = Frecency()
 
 
@@ -208,7 +201,7 @@ def _extras(node: Any) -> list[str]:
     if label:
         extras.append(label.splitlines()[0])
 
-    # Read nodes are named Read1..ReadN; the file name is what the artist remembers.
+    # You remember a Read by its file, not by Read12.
     if node.knob("file") and node["file"].value():
         extras.append(Path(node["file"].value()).name)
 
@@ -264,7 +257,7 @@ def collect_candidates(target: Any | None) -> list[Candidate]:
 def input_slot(target: Any) -> int:
     """Return the first free input that is not the mask: the socket offered by default.
 
-    When every input is taken, input 0 is offered: the artist may want to rewire it.
+    Falls back to input 0 when all are taken.
     """
     optional = target.optionalInput()
     for index in range(target.maxInputs()):
@@ -274,22 +267,20 @@ def input_slot(target: Any) -> int:
 
 
 def sockets(target: Any) -> list[int]:
-    """Return the input indexes the artist can pick from, in index order.
+    """Return the inputs to show as tabs: connected ones, the first free one, and the mask.
 
-    Covers every connected input, the first free one, and everything up to the mask,
-    so an empty Merge offers B, A, mask. Merge has thousands of A inputs; the range
-    stops there instead of listing them all.
+    Merge has thousands of A inputs, so this stops at the mask instead of listing them.
     """
     count = max(target.inputs(), input_slot(target) + 1, target.optionalInput() + 1)
     return list(range(min(target.maxInputs(), count)))
 
 
 def socket_name(target: Any, slot: int) -> str:
-    """Return the label Nuke draws on the input arrow, as far as the Python API lets us know it."""
+    """Return the label Nuke draws on the input arrow."""
     if slot == target.optionalInput():
         return "mask"
 
-    # shortcut: the Python API has no call for input labels; extend this table as nodes come up.
+    # Nuke's Python API can't read arrow labels, hence the table.
     names = INPUT_NAMES.get(target.Class())
     if names is None:
         return "input" if slot == 0 else str(slot)
@@ -524,7 +515,7 @@ class Popup(QtWidgets.QFrame):
 
     def _accept(self, *, open_properties: bool = False) -> None:
         row = self._current_row()
-        # After Alt+F the artist navigated there, so a connect stays on the picked node.
+        # After Alt+F, stay on the picked node.
         previewed = self._saved_view is not None
         # Closing first restores any Alt+F preview, so the jump below starts from the real view.
         self.close()
@@ -584,7 +575,7 @@ class Popup(QtWidgets.QFrame):
     # === PUBLIC === #
 
     def hideEvent(self, event: Any) -> None:
-        """Put view and selection back where the artist was working, whatever closed the popup."""
+        """Restore the view and selection after an Alt+F preview."""
         if self._saved_view is not None:
             for node in nuke.selectedNodes():
                 node.setSelected(False)

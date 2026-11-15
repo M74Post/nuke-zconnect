@@ -1,32 +1,28 @@
 # zconnect
 
-Connect Nuke nodes by fuzzy search instead of dragging pipes.
+Plug nodes together without dragging pipes across the graph.
 
-Select a node, press `Z`, type a few letters, press `Enter`. The match
-connects to the first free input. Search covers node name, label, class and
-Read file name. Nodes you use often and recently rank first. On the mask
-input, Roto, Keyer and shape nodes rank first.
-
-`Shift+Z` jumps to any node, backdrop or sticky note instead.
+Select a node, hit `Z`, type a few letters of the node you want, `Enter`.
+`Shift+Z` uses the same search to jump to a node instead.
 
 ## Install
 
-Download `nuke-zconnect-<version>.zip` from the
-[releases](https://github.com/sisoe24/nuke-zconnect/releases), unzip it
+Download the Source code zip from the
+[latest release](https://github.com/sisoe24/nuke-zconnect/releases/latest), unzip it
 anywhere, and add the folder to the plugin path in `~/.nuke/init.py`:
 
 ```python
-nuke.pluginAddPath("/path/to/zconnect")
+nuke.pluginAddPath("/path/to/nuke-zconnect")
 ```
 
-To use other keys, copy only `zconnect.py` into `~/.nuke` and add this to
-`~/.nuke/menu.py`, with your own keys in place of `"z"` and `"shift+z"`:
+Or copy `zconnect.py` into `~/.nuke` and add this to `~/.nuke/menu.py`:
 
 ```python
 import nuke
 import zconnect
 
 graph = nuke.menu("Node Graph")
+# Change the keys to whatever you like.
 graph.addCommand("zconnect/Connect input", zconnect.show, "z", shortcutContext=2)
 graph.addCommand("zconnect/Jump to node", zconnect.jump, "shift+z", shortcutContext=2)
 ```
@@ -57,13 +53,6 @@ Build a large test comp to try it on:
 
 ```bash
 nuke -t scripts/make_test_script.py ~/zconnect_test.nk
-```
-
-Build the release zip:
-
-```bash
-mkdir -p dist/zconnect && cp zconnect.py menu.py LICENSE README.md dist/zconnect/
-(cd dist && zip -r nuke-zconnect-0.1.0.zip zconnect)
 ```
 
 ## License

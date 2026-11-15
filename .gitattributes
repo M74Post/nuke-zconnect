@@ -1,0 +1,9 @@
+# Keep the GitHub release zip to the files Nuke needs.
+tests/ export-ignore
+scripts/ export-ignore
+pyproject.toml export-ignore
+uv.lock export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+.python-version export-ignore
+CHANGELOG.md export-ignore

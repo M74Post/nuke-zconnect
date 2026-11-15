@@ -1,9 +1,6 @@
-"""Build a large fake comp in the open Nuke session to test zconnect.
+"""Build a big fake comp to try zconnect on.
 
-Run inside Nuke (Script Editor, or `nuke -t scripts/make_test_script.py out.nk`).
-Each element gets a Read with a realistic file name, a correction chain,
-sometimes a Roto mask and a labelled Dot, then all elements are merged
-over the background plate down to one Write.
+Paste into the Script Editor, or: nuke -t scripts/make_test_script.py out.nk
 """
 
 from __future__ import annotations
