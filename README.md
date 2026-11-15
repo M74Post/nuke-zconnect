@@ -1,22 +1,17 @@
 # zconnect
 
-Connect Nuke nodes by fuzzy search instead of dragging pipes across the graph.
+Connect Nuke nodes by fuzzy search instead of dragging pipes.
 
-Select a node and press `Z`, type a few letters of the node you want, press
-`Enter`. The picked node connects to the first free input of the selected
-node; `Alt+A` cycles to another input first. Matches cover the node
-name, its label, its class, and the file name of Read nodes. Nodes you picked
-recently rank higher, like `zoxide`.
+Select a node, press `Z`, type a few letters, press `Enter`. The match
+connects to the first free input. Search covers node name, label, class and
+Read file name. Nodes you use often and recently rank first. On the mask
+input, Roto, Keyer and shape nodes rank first.
 
-`Shift+Z` opens the same search without a selected node and jumps to the
-pick: it selects the node and frames it, like `z` in zoxide changes directory.
-Backdrops and sticky notes are in the jump results, so you can jump to a section
-by its backdrop label.
+`Shift+Z` jumps to any node, backdrop or sticky note instead.
 
 ## Install
 
-zconnect is one file, `zconnect.py`. Either copy it into `~/.nuke` and add
-this to `~/.nuke/menu.py`:
+Copy `zconnect.py` into `~/.nuke` and add this to `~/.nuke/menu.py`:
 
 ```python
 import nuke
@@ -27,46 +22,38 @@ graph.addCommand("zconnect/Connect input", zconnect.show, "z", shortcutContext=2
 graph.addCommand("zconnect/Jump to node", zconnect.jump, "shift+z", shortcutContext=2)
 ```
 
-Or add the repo folder to Nuke's plugin path in `~/.nuke/init.py`, and this
-repo's `menu.py` registers the shortcuts for you:
+Change `"z"` and `"shift+z"` to use other keys.
+
+Or clone the repo and add it to the plugin path in `~/.nuke/init.py`. Its
+`menu.py` registers the default keys:
 
 ```python
 nuke.pluginAddPath("/path/to/zconnect")
 ```
 
-The keys are the strings passed to `addCommand` (`"z"`, `"shift+z"`); change
-them to any free shortcut. To pick your own keys, use the first option: the
-repo's `menu.py` registers the defaults.
-
 ## Keys
 
-| Key                                | Action                                                                    |
-| ---------------------------------- | ------------------------------------------------------------------------- |
-| `Z`                                | Open the popup to connect an input of the selected node                   |
-| `Shift+Z`                          | Open the popup to jump to any node                                        |
-| `Alt+A`                            | Switch to the next input tab (`B`, `A`, `mask`...); click a tab works too |
-| `Tab` / `Down`, `Shift+Tab` / `Up` | Move through the results                                                  |
-| `Enter` or click                   | Connect (or jump) and close                                               |
-| `Shift+Enter`                      | Jump mode only: jump and open the node's properties panel                 |
-| `Alt+P`                            | Open the highlighted node's properties in a floating panel                |
-| `Alt+F`                            | Frame the highlighted node; `Esc` returns the view, `Enter` connects and stays there |
-| `Esc`                              | Close without connecting                                                  |
-
-A hint row at the bottom of the popup lists these keys and wraps to the popup width.
-The popup opens just under the selected node. The input starts on the first
-free one; nodes with a single input show no tabs. When the mask input is picked, Roto,
-RotoPaint, Keyer, Radial, Rectangle and Ramp nodes rank higher.
+| Key                   | Action                                                    |
+| --------------------- | --------------------------------------------------------- |
+| `Z`                   | Connect an input of the selected node                     |
+| `Shift+Z`             | Jump to a node                                            |
+| `Tab` / `Down`, `Up`  | Move through results                                      |
+| `Enter` or click      | Connect or jump, then close                               |
+| `Shift+Enter`         | Jump and open the properties panel (jump mode)            |
+| `Alt+A`               | Next input tab (`B`, `A`, `mask`)                         |
+| `Alt+F`               | Frame the node. `Enter` connects and stays, `Esc` returns |
+| `Alt+P`               | Open properties in a floating panel                       |
+| `Esc`                 | Close                                                     |
 
 ## Development
 
-Run the tests (no Nuke needed; `tests/conftest.py` stands in for the `nuke` module):
+Tests run without Nuke; `tests/conftest.py` fakes the `nuke` module:
 
 ```bash
 uv run pytest
 ```
 
-Build a large test comp inside Nuke with `scripts/make_test_script.py`:
-paste it into the Script Editor, or save it as a script from a terminal:
+Build a large test comp to try it on:
 
 ```bash
 nuke -t scripts/make_test_script.py ~/zconnect_test.nk
@@ -74,4 +61,4 @@ nuke -t scripts/make_test_script.py ~/zconnect_test.nk
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT
