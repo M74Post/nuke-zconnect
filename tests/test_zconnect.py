@@ -107,6 +107,11 @@ def test_fuzzy_prefers_word_start() -> None:
     assert fuzzy_score("p", "bg_plate") > fuzzy_score("p", "comp")
 
 
+def test_fuzzy_treats_camel_case_hump_as_word_start() -> None:
+    """The second C in ColorCorrect starts a word, so "cc" beats a shorter mid-word match."""
+    assert fuzzy_score("cc", "ColorCorrect") > fuzzy_score("cc", "Concat")
+
+
 def test_rank_matches_read_file_basename() -> None:
     """Read nodes are found by their file name, not only by ReadN."""
     bg = _candidate("Read4", "bg_plate_v003.exr")

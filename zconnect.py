@@ -47,6 +47,7 @@ def fuzzy_score(query: str, text: str) -> float | None:
         return 0.0
 
     query = query.lower()
+    original = text
     text = text.lower()
 
     score = 0.0
@@ -60,7 +61,12 @@ def fuzzy_score(query: str, text: str) -> float | None:
         score += 1.0
         if index == previous + 1:
             score += 3.0
-        if index == 0 or text[index - 1] in SEPARATORS:
+        # Word start: after a separator, or a camelCase hump like the C in ColorCorrect.
+        if (
+            index == 0
+            or text[index - 1] in SEPARATORS
+            or (original[index].isupper() and original[index - 1].islower())
+        ):
             score += 5.0
 
         previous = index
