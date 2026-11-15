@@ -11,7 +11,16 @@ input, Roto, Keyer and shape nodes rank first.
 
 ## Install
 
-Copy `zconnect.py` into `~/.nuke` and add this to `~/.nuke/menu.py`:
+Download `nuke-zconnect-<version>.zip` from the
+[releases](https://github.com/sisoe24/nuke-zconnect/releases), unzip it
+anywhere, and add the folder to the plugin path in `~/.nuke/init.py`:
+
+```python
+nuke.pluginAddPath("/path/to/zconnect")
+```
+
+To use other keys, copy only `zconnect.py` into `~/.nuke` and add this to
+`~/.nuke/menu.py`, with your own keys in place of `"z"` and `"shift+z"`:
 
 ```python
 import nuke
@@ -20,15 +29,6 @@ import zconnect
 graph = nuke.menu("Node Graph")
 graph.addCommand("zconnect/Connect input", zconnect.show, "z", shortcutContext=2)
 graph.addCommand("zconnect/Jump to node", zconnect.jump, "shift+z", shortcutContext=2)
-```
-
-Change `"z"` and `"shift+z"` to use other keys.
-
-Or clone the repo and add it to the plugin path in `~/.nuke/init.py`. Its
-`menu.py` registers the default keys:
-
-```python
-nuke.pluginAddPath("/path/to/zconnect")
 ```
 
 ## Keys
@@ -57,6 +57,13 @@ Build a large test comp to try it on:
 
 ```bash
 nuke -t scripts/make_test_script.py ~/zconnect_test.nk
+```
+
+Build the release zip:
+
+```bash
+mkdir -p dist/zconnect && cp zconnect.py menu.py LICENSE README.md dist/zconnect/
+(cd dist && zip -r nuke-zconnect-0.1.0.zip zconnect)
 ```
 
 ## License

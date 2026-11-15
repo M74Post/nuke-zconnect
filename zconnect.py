@@ -2,9 +2,12 @@
 
 Select a node, press the hotkey, type a few letters, press Enter.
 The picked node becomes an input of the selected node.
-The jump hotkey uses the same search to select and frame a node, like `z` in zoxide.
+The jump hotkey uses the same search to select and frame a node.
 
 Single file on purpose: copy it next to a menu.py and it works.
+
+https://github.com/sisoe24/nuke-zconnect
+Copyright (c) 2026 virgilsisoe. MIT License, see LICENSE.
 """
 
 from __future__ import annotations
@@ -16,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 import nuke
+
+__version__ = "0.1.0"
 
 try:
     from PySide6 import QtCore, QtGui, QtWidgets

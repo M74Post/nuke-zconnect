@@ -1,5 +1,5 @@
 [project]
-name = "zconnect"
+name = "nuke-zconnect"
 version = "0.1.0"
 description = "Connect Nuke nodes by fuzzy search, ranked by frecency."
 readme = "README.md"
