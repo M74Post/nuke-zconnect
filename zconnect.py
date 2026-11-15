@@ -108,15 +108,7 @@ class Frecency:
 
 # shortcut: renamed nodes lose their score and nothing persists after Nuke closes;
 # key by a stored node id and save to JSON if that starts to hurt.
-_frecency: Frecency | None = None
-
-
-def get_frecency() -> Frecency:
-    """Return the session-wide frecency table."""
-    global _frecency
-    if _frecency is None:
-        _frecency = Frecency()
-    return _frecency
+FRECENCY = Frecency()
 
 
 # === RANKING === #
@@ -303,7 +295,7 @@ def connect(target: Any, candidate: Candidate, *, slot: int) -> None:
     finally:
         nuke.Undo.end()
 
-    get_frecency().add(candidate.key, time.time())
+    FRECENCY.add(candidate.key, time.time())
 
 
 def frame(node: Any) -> None:
@@ -319,7 +311,7 @@ def jump_to(candidate: Candidate, *, open_properties: bool = False) -> None:
     frame(candidate.node)
     if open_properties:
         nuke.show(candidate.node)
-    get_frecency().add(candidate.key, time.time())
+    FRECENCY.add(candidate.key, time.time())
 
 
 # === PLACEMENT === #
@@ -514,7 +506,7 @@ class Popup(QtWidgets.QFrame):
         ranked = rank(
             self._candidates,
             self._query.text(),
-            frecency=get_frecency(),
+            frecency=FRECENCY,
             now=time.time(),
             boost_classes=boost,
         )
@@ -632,22 +624,17 @@ class Popup(QtWidgets.QFrame):
         return False
 
 
-# Keeps the open popup alive when Nuke has no active window to own it.
-_popup: Popup | None = None
-
-
 def _open(target: Any | None, *, slots: list[int]) -> None:
-    global _popup
-
-    _popup = Popup(
+    # The Nuke window is the Qt parent and keeps the popup alive.
+    popup = Popup(
         target,
         candidates=collect_candidates(target),
         slots=slots,
         parent=QtWidgets.QApplication.activeWindow(),
     )
-    _place(_popup, target)
-    _popup.show()
-    _popup.setFocus()
+    _place(popup, target)
+    popup.show()
+    popup.setFocus()
 
 
 def jump() -> None:
