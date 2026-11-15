@@ -11,8 +11,6 @@ recently rank higher, like `zoxide`.
 `Shift+Z` opens the same search without a selected node and jumps to the
 pick: it selects the node and frames it, like `z` in zoxide changes directory.
 
-Status: early prototype. The interaction is still changing.
-
 ## Install
 
 zconnect is one file, `zconnect.py`. Either copy it into `~/.nuke` and add
@@ -45,10 +43,10 @@ nuke.pluginAddPath("/path/to/zconnect")
 | `Enter` or click                   | Connect (or jump) and close                                               |
 | `Shift+Enter`                      | Jump mode only: jump and open the node's properties panel                 |
 | `Alt+P`                            | Open the highlighted node's properties in a floating panel                |
-| `Alt+F`                            | Frame the highlighted node in the graph; the view returns on close        |
+| `Alt+F`                            | Frame the highlighted node; `Esc` returns the view, `Enter` connects and stays there |
 | `Esc`                              | Close without connecting                                                  |
 
-A hint row at the bottom of the popup lists these keys.
+A hint row at the bottom of the popup lists these keys and wraps to the popup width.
 The popup opens just under the selected node. The input starts on the first
 free one; nodes with a single input show no tabs. When the mask input is picked, Roto,
 RotoPaint, Keyer, Radial, Rectangle and Ramp nodes rank higher.
