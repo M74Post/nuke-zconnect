@@ -32,12 +32,9 @@ repo's `menu.py` registers the shortcuts for you:
 nuke.pluginAddPath("/path/to/zconnect")
 ```
 
-### Shortcut clash
-
-`Z` and `Shift+Z` may already be bound in your Nuke setup, by Nuke itself or by
-another plugin. The zconnect binding takes over the key in the Node Graph.
-To keep the existing shortcut, pass a different key to `addCommand`, for
-example `"alt+z"`.
+The keys are the strings passed to `addCommand` (`"z"`, `"shift+z"`); change
+them to any free shortcut. To pick your own keys, use the first option: the
+repo's `menu.py` registers the defaults.
 
 ## Keys
 
