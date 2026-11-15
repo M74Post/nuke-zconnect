@@ -456,7 +456,7 @@ class Popup(QtWidgets.QFrame):
     def _hint_text(self) -> str:
         if self._target is None:
             hints = ["Enter: jump", "Shift+Enter: jump + panel"]
-        else
+        else:
             hints = ["Enter: connect"]
         hints.append("Tab/↑↓: move")
         if len(self._slots) > 1:
