@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -624,9 +625,14 @@ class Popup(QtWidgets.QFrame):
         return False
 
 
+# Keeps the open popup alive: without this reference the jump popup closes at once.
+_popup: Popup | None = None
+
+
 def _open(target: Any | None, *, slots: list[int]) -> None:
-    # The Nuke window is the Qt parent and keeps the popup alive.
-    popup = Popup(
+    global _popup
+
+    _popup = popup = Popup(
         target,
         candidates=collect_candidates(target),
         slots=slots,
@@ -653,5 +659,5 @@ def show() -> None:
     if target.maxInputs() == 0:
         nuke.message(f"zconnect: {target.name()} has no inputs.")
         return
-
+    nuke.tprint(QtWidgets.QApplication.focusWidget().objectName())
     _open(target, slots=sockets(target))
