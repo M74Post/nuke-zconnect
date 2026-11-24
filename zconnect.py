@@ -1,7 +1,7 @@
 """Connect Nuke nodes by fuzzy search.
 
 https://github.com/M74Post/nuke-zconnect
-Copyright (c) 2026 virgilsisoe. MIT License, see LICENSE.
+Copyright (c) 2026 M74Post. MIT License, see LICENSE.
 """
 
 from __future__ import annotations
