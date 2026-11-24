@@ -8,7 +8,7 @@ Select a node, hit `Z`, type a few letters of the node you want, `Enter`.
 ## Install
 
 Download the Source code zip from the
-[latest release](https://github.com/sisoe24/nuke-zconnect/releases/latest), unzip it
+[latest release](https://github.com/M74Post/nuke-zconnect/releases/latest), unzip it
 anywhere, and add the folder to the plugin path in `~/.nuke/init.py`:
 
 ```python

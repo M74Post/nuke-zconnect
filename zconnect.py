@@ -1,6 +1,6 @@
 """Connect Nuke nodes by fuzzy search.
 
-https://github.com/sisoe24/nuke-zconnect
+https://github.com/M74Post/nuke-zconnect
 Copyright (c) 2026 virgilsisoe. MIT License, see LICENSE.
 """
 
