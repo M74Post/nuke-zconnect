@@ -55,6 +55,10 @@ Build a large test comp to try it on:
 nuke -t scripts/make_test_script.py ~/zconnect_test.nk
 ```
 
+## Maintainer
+
+Made and maintained by [Virgil Sisoe](https://github.com/sisoe24).
+
 ## License
 
 MIT
